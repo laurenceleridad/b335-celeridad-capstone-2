@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const bcrypt = require("bcrypt");
 const auth = require("../auth");
+const Cart = require("../models/Cart");
 
 
 module.exports.registerUser = (req, res) => {
@@ -130,3 +131,70 @@ module.exports.updateUserToAdmin = (req, res) => {
       return res.status(500).send({ error: "Internal Server Error" });
     });
 };
+
+module.exports.getUsersCart = (req,res) => {
+    console.log(req.user);
+    return Cart.find({userId: req.user.id})
+    .then(YourCart =>{
+        if(!YourCart){
+                //status code -404
+            return res.status(404).send({error: 'No items in your cart. Please add now.'});
+
+        } else {
+            return res.status(200).send({YourCart})
+        }
+    })
+    .catch(err => {
+        console.error("Error in getting your cart", err);
+        return res.status(500).send({error: "Failed to fetch cart"});
+    })
+}
+
+module.exports.addToCart = (req, res) => {
+
+    let newCart = new Cart ({
+      userId: req.user.id,
+      cartItems: req.body.cartItems,
+      totalPrice: req.body.totalPrice
+    })
+
+    return newCart.save()
+    .then(YourCart => {return res.status(201).send(YourCart)})
+    .catch(err => res.status(500).send(err));
+  }
+
+module.exports.updateCartItem = async (req, res) => {
+  try {
+    const { userId, productId, quantity, subtotal, totalPrice } = req.body;
+
+    console.log('Updating cart item:', userId, productId);
+
+    // Update the cartItem in the user document
+    const updatedUser = await Cart.findOneAndUpdate(
+      {
+        userId,
+        'cartItems.productId': productId,
+      },
+      {
+        $set: {
+          'cartItems.$.quantity': quantity,
+          'cartItems.$.subtotal': subtotal,
+          totalPrice,
+        },
+      },
+      { new: true } // Return the modified document
+    );
+
+    console.log('Updated user:', updatedUser);
+
+    if (!updatedUser) {
+      return res.status(404).send({ error: 'User or cart item not found' });
+    }
+
+    res.send(updatedUser);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Internal Server Error');
+  }
+};
+
