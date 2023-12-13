@@ -2,7 +2,7 @@ const Product = require("../models/Product");
 
 
 module.exports.addProduct = (req, res) => {
-	Course.findOne({name: req.body.name})
+	Product.findOne({name: req.body.name})
 	.then(result => {
 		if(result){
 			return res.status(409).send({ error: "Product already exist"}) 
@@ -81,15 +81,15 @@ module.exports.activateProduct = (req, res) => {
     }
 
     return Product.findByIdAndUpdate(req.params.productId, updateStatus)
-    .then(activateProduct => {
-        if(!activateProduct){
+    .then(activatedProduct => {
+        if(!activatedProduct){
             return res.status(404).send({ error: 'Product not found' });
         }
         else{
             return res.status(200).send(
                 { 
                 message: 'Product activated successfully', 
-                activateProduct
+                activatedProduct
                 }
             );
         }
