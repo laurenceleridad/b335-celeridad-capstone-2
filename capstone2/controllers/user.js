@@ -150,46 +150,131 @@ module.exports.getUsersCart = (req,res) => {
     })
 }
 
-module.exports.addToCart = (req, res) => {
+module.exports.addToCart = async (req, res) => {
+  const { userId, cartItems } = req.body;
 
-    let newCart = new Cart ({
-      userId: req.user.id,
-      cartItems: req.body.cartItems,
-      totalPrice: req.body.totalPrice
-    })
+  try {
+    // Check if the user already has a cart
+    let existingCart = await Cart.findOne({ userId });
 
-    return newCart.save()
-    .then(YourCart => {return res.status(201).send(YourCart)})
-    .catch(err => res.status(500).send(err));
+    if (existingCart) {
+      // Iterate over each item in cartItems
+      for (const newItem of cartItems) {
+        // Check if the product already exists in the cart
+        const existingCartItemIndex = existingCart.cartItems.findIndex(
+          (item) => item.productId === newItem.productId
+        );
+
+        if (existingCartItemIndex !== -1) {
+          // If the product already exists, update quantity and subtotal
+          existingCart.cartItems[existingCartItemIndex].quantity += newItem.quantity;
+          existingCart.cartItems[existingCartItemIndex].subtotal += newItem.subtotal;
+        } else {
+          // If the product does not exist, add it to the cart
+          existingCart.cartItems.push(newItem);
+        }
+      }
+
+      // Calculate the updated total price based on individual quantity and subtotal values
+      existingCart.totalPrice = existingCart.cartItems.reduce(
+        (total, item) => total + item.subtotal,
+        0
+      );
+
+      // Save the updated cart
+      const updatedCart = await existingCart.save();
+
+      return res.status(200).json(updatedCart);
+    } else {
+      // If the user doesn't have a cart, create a new cart
+      const totalPrice = cartItems.reduce((total, item) => total + item.subtotal, 0);
+      const newCart = new Cart({
+        userId,
+        cartItems,
+        totalPrice,
+      });
+
+      const savedCart = await newCart.save();
+      return res.status(201).json(savedCart);
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).send('Internal Server Error');
   }
+};
 
 module.exports.updateCartItem = async (req, res) => {
   try {
-    const { userId, productId, quantity, subtotal, totalPrice } = req.body;
+    const { userId, productId, quantity, subtotal } = req.body;
 
     console.log('Updating cart item:', userId, productId);
-    const updatedUser = await Cart.findOneAndUpdate(
-      {
-        userId,
-        'cartItems.productId': productId,
-      },
-      {
-        $set: {
-          'cartItems.$.quantity': quantity,
-          'cartItems.$.subtotal': subtotal,
-          totalPrice,
+
+    const existingCartItem = await Cart.findOne({
+      userId,
+      'cartItems.productId': productId,
+    });
+
+    if (existingCartItem) {
+      // If the item already exists, find the index of the product in cartItems
+      const updatedItemIndex = existingCartItem.cartItems.findIndex(
+        (item) => item.productId === productId
+      );
+
+      const existingQuantity = existingCartItem.cartItems[updatedItemIndex].quantity;
+
+      // Check if quantity and subtotal are the same
+      if (existingQuantity !== quantity || existingCartItem.cartItems[updatedItemIndex].subtotal !== subtotal) {
+        // Reset total price to the initial value
+        existingCartItem.totalPrice = existingCartItem.totalPrice - existingCartItem.cartItems[updatedItemIndex].subtotal;
+
+        // Update quantity and subtotal for the specific item
+        existingCartItem.cartItems[updatedItemIndex].quantity = quantity;
+        existingCartItem.cartItems[updatedItemIndex].subtotal = subtotal;
+
+        // Update total price by adding the new subtotal
+        existingCartItem.totalPrice += subtotal;
+
+        // Save the updated cart
+        const updatedUser = await existingCartItem.save();
+
+        console.log('Updated user:', updatedUser);
+        return res.send({ message: 'Here is your updated order', updatedUser });
+      } else {
+        // If quantity and subtotal are the same, just return the existing cart
+        console.log('No changes in quantity or subtotal, returning existing cart.');
+        return res.send({ message: 'No changes in quantity or subtotal', existingCartItem });
+      }
+    } else {
+      // If the item doesn't exist, add it to cartItems
+      const newItem = {
+        productId,
+        quantity,
+        subtotal,
+      };
+
+      // Update total price by adding the new subtotal
+      const totalChange = subtotal;
+      const updatedUserWithNewItem = await Cart.findOneAndUpdate(
+        { userId },
+        {
+          $push: {
+            cartItems: newItem,
+          },
+          $inc: {
+            totalPrice: totalChange,
+          },
         },
-      },
-      { new: true }
-    );
+        {
+          new: true,
+        }
+      );
 
-    console.log('Updated user:', updatedUser);
-
-    if (!updatedUser) {
-      return res.status(404).send({ error: 'User or cart item not found' });
+      console.log('Updated user:', updatedUserWithNewItem);
+      return res.send({
+        message: 'Item added to cart',
+        updatedUser: updatedUserWithNewItem,
+      });
     }
-
-    res.send(updatedUser);
   } catch (error) {
     console.error(error);
     res.status(500).send('Internal Server Error');
@@ -199,7 +284,7 @@ module.exports.updateCartItem = async (req, res) => {
 
 module.exports.clearCartItems = async (req, res) => {
   try {
-    const { userId } = req.body;
+    const { id: userId } = req.user; // Use destructuring to get the 'id' property from req.user
 
     console.log(`Clearing the cart for user ${userId}`);
 
@@ -232,21 +317,30 @@ module.exports.clearCartItems = async (req, res) => {
 
 module.exports.removeCartItem = async (req, res) => {
   try {
-    const { userId, productId, totalPrice } = req.body;
+    const userId = req.user.id;
+    const { productId } = req.params;
 
     console.log(`Removing product ${productId} from the cart for user ${userId}`);
 
     const userBeforeUpdate = await Cart.findOne({ userId });
     console.log('Cart before update:', userBeforeUpdate);
 
+    // Find the item to be removed
+    const itemToRemove = userBeforeUpdate.cartItems.find(item => item.productId === productId);
+
+    if (!itemToRemove) {
+      return res.status(404).send({ error: 'Product not found in the cart' });
+    }
+
+    // Remove the item and update the total price
     const updatedUser = await Cart.findOneAndUpdate(
       { userId },
       {
         $pull: {
           'cartItems': { productId },
         },
-        $set: {
-          totalPrice,
+        $inc: {
+          'totalPrice': -itemToRemove.subtotal,
         },
       },
       { new: true }
@@ -264,7 +358,6 @@ module.exports.removeCartItem = async (req, res) => {
     res.status(500).send('Internal Server Error');
   }
 };
-
 
 module.exports.createOrder = (req, res) => {
 
