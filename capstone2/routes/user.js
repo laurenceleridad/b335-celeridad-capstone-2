@@ -17,6 +17,10 @@ router.get("/get-cart", verify, userController.getUsersCart);
 router.post("/add-to-cart", verify, userController.addToCart);
 router.put("/update-cart-quantity", verify, userController.updateCartItem);
 
+router.patch('/remove-cart-item', verify, userController.removeCartItem);
+router.put('/clear-cart-items', verify,  userController.clearCartItems);
+
+
 // router.get('/google', passport.authenticate('google', {
 // 	scope: ['email', 'profile'],
 // 	prompt: "select_account"

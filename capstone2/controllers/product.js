@@ -142,3 +142,42 @@ module.exports.updateProduct = (req, res) => {
 		return res.status(500).send({ error: 'Error in updating a product.' });
 	});
 }
+
+module.exports.searchProductsByPriceRange = (req, res) => {
+  const { minPrice, maxPrice } = req.body;
+
+  if (!minPrice || !maxPrice) {
+    return res.status(400).send({ error: "Both minPrice and maxPrice are required." });
+  }
+
+  Product.find({ price: { $gte: minPrice, $lte: maxPrice } })
+    .then((products) => {
+      return res.status(200).send({ products });
+    })
+    .catch((err) => {
+      console.error("Error searching products by price range", err);
+      return res.status(500).send({ error: "Internal Server Error" });
+    });
+};
+
+module.exports.searchProductsByName = (req, res) => {
+  const { name } = req.body;
+
+  if (!name) {
+    return res.status(400).send({ error: "Name is required." });
+  }
+
+  const regex = new RegExp(name, 'i'); // 'i' makes the regex case-insensitive
+
+  console.log('Regex:', regex);
+
+  Product.find({ name: regex })
+    .then((products) => {
+      console.log('Query results:', products);
+      return res.status(200).send({ products });
+    })
+    .catch((err) => {
+      console.error("Error searching products by name", err);
+      return res.status(500).send({ error: "Internal Server Error" });
+    });
+};

@@ -168,8 +168,6 @@ module.exports.updateCartItem = async (req, res) => {
     const { userId, productId, quantity, subtotal, totalPrice } = req.body;
 
     console.log('Updating cart item:', userId, productId);
-
-    // Update the cartItem in the user document
     const updatedUser = await Cart.findOneAndUpdate(
       {
         userId,
@@ -182,7 +180,7 @@ module.exports.updateCartItem = async (req, res) => {
           totalPrice,
         },
       },
-      { new: true } // Return the modified document
+      { new: true }
     );
 
     console.log('Updated user:', updatedUser);
@@ -198,3 +196,71 @@ module.exports.updateCartItem = async (req, res) => {
   }
 };
 
+
+module.exports.clearCartItems = async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    console.log(`Clearing the cart for user ${userId}`);
+
+    const userBeforeUpdate = await Cart.findOne({ userId });
+    console.log('Cart before update:', userBeforeUpdate);
+
+    const updatedUser = await Cart.findOneAndUpdate(
+      { userId },
+      {
+        $set: {
+          'cartItems': [],
+          totalPrice: 0,
+        },
+      },
+      { new: true }
+    );
+
+    console.log('Updated user:', updatedUser);
+
+    if (!updatedUser) {
+      return res.status(404).send({ error: 'User not found' });
+    }
+
+    res.send({ message: 'Cart items cleared', updatedUser });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Internal Server Error');
+  }
+};
+
+module.exports.removeCartItem = async (req, res) => {
+  try {
+    const { userId, productId, totalPrice } = req.body;
+
+    console.log(`Removing product ${productId} from the cart for user ${userId}`);
+
+    const userBeforeUpdate = await Cart.findOne({ userId });
+    console.log('Cart before update:', userBeforeUpdate);
+
+    const updatedUser = await Cart.findOneAndUpdate(
+      { userId },
+      {
+        $pull: {
+          'cartItems': { productId },
+        },
+        $set: {
+          totalPrice,
+        },
+      },
+      { new: true }
+    );
+
+    console.log('Updated user:', updatedUser);
+
+    if (!updatedUser) {
+      return res.status(404).send({ error: 'User not found' });
+    }
+
+    res.send(updatedUser);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Internal Server Error');
+  }
+};
