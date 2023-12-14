@@ -99,3 +99,46 @@ module.exports.activateProduct = (req, res) => {
         return res.status(500).send({ error: 'Error in activating a product.' });
     });
 }
+
+
+module.exports.getAllActive = (req, res) => {
+	Product.find({ isActive : true})
+	.then(product => {
+		if(product.length > 0){
+			return res.status(200).send({ product });
+		}
+		else{
+			return res.status(200).send({ message: "No active products"});
+		}
+	})
+	.catch(err => res.status(500).send({ error: "Error finding active products" }) );
+};
+
+
+module.exports.updateProduct = (req, res) => {
+
+	let updatedProduct = {
+		name: req.body.name,
+		description: req.body.description, 
+		price: req.body.price 
+	}
+
+	return Product.findByIdAndUpdate(req.params.productId, updatedProduct)
+	.then(result => {
+		if(!result){
+			return res.status(404).send({ error: "Product not found"})
+		}
+		else{
+			return res.status(200).send(
+				{ 
+	        	message: 'Product updated successfully', 
+	        	updatedProduct : updatedProduct 
+	        	}
+	        );
+		}
+	})
+	.catch(err => {
+		console.error("Error in updating a product: ", err)
+		return res.status(500).send({ error: 'Error in updating a product.' });
+	});
+}

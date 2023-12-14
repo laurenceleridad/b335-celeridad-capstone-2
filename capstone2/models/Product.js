@@ -19,7 +19,7 @@ const productSchema = new mongoose.Schema ({
 
 	isActive: {
 		type: Boolean,
-		dafault: true
+		default: true
 	},
 
 	createdOn: {

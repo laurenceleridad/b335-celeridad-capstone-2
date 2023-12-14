@@ -32,8 +32,9 @@ app.use(cors());
 // app.use(passport.initialize());
 // app.use(passport.session());
 
+// mongodb+srv://admin:admin@b335-glemao.od57ehx.mongodb.net/postmanCartHub
 
-mongoose.connect("mongodb+srv://admin:admin@b335-celeridad.au92cmr.mongodb.net/FragsHubPH",
+mongoose.connect("mongodb+srv://admin:admin@b335-glemao.od57ehx.mongodb.net/postmanCartHub",
 	{
 		useNewUrlParser : true,//for parsing/reading connection string
 		useUnifiedTopology : true//assures that we uses the updated mongoDB servers

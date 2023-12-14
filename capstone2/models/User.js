@@ -22,14 +22,14 @@ const userSchema = new mongoose.Schema ({
 		required: [true, "password is required"]
 	},
 
-	isAdmin:{
+	isAdmin: {
 		type: Boolean,
-		required: false
+		default: false
 	},
 	
-	mobileNo:{
-		type:String,
-		required:[true, "mobile number is required"]
+	mobileNo: {
+		type: String,
+		required: [true, "mobile number is required"]
 	}
 	
 });

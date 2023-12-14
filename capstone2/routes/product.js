@@ -11,8 +11,12 @@ router.get("/all", verify, verifyAdmin, productController.getAllProduct);
 
 router.get("/:productId", productController.getProduct);
 
+router.get("/", productController.getAllActive);
+
 router.patch("/:productId/archive", verify, verifyAdmin, productController.archiveProduct);
 
 router.patch("/:productId/activate", verify, verifyAdmin, productController.activateProduct);
+
+router.patch("/:productId", verify, verifyAdmin, productController.updateProduct);
 
 module.exports = router;
