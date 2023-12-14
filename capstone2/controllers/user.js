@@ -369,6 +369,7 @@ module.exports.createOrder = (req, res) => {
 
     return newOrder.save()
     .then(yourOrder => {return res.status(201).send({message: "Order created successfully", yourOrder})})
+
     .catch(err => res.status(500).send(err));
 }
 
@@ -396,3 +397,101 @@ module.exports.getUsersOrder = (req,res) => {
         return res.status(500).send({error: "Failed to fetch order"});
     })
 }
+
+
+module.exports.createOrder = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const cart = await Cart.findOne({ userId });
+
+        if (!cart) {
+            return res.status(404).send({ message: "No cart found for the current user" });
+        }
+
+        if (cart.cartItems.length === 0) {
+            return res.status(400).send({ message: "No items in the cart" });
+        }
+
+        // Check if an order with the same userId and productsOrdered already exists
+        const existingOrder = await Order.findOne({
+            userId: userId,
+            productsOrdered: cart.cartItems,
+        });
+
+        if (existingOrder) {
+            return res.status(409).send({ message: "Duplicate order detected. The same order already exists." });
+        }
+
+        const newOrder = new Order({
+            userId: userId,
+            productsOrdered: cart.cartItems,
+            totalPrice: cart.totalPrice,
+        });
+
+        const yourOrder = await newOrder.save();
+
+        return res.status(201).send({
+            message: "Order created successfully",
+            yourOrder,
+        });
+    } catch (err) {
+        return res.status(500).send(err);
+    }
+};
+
+
+module.exports.getUsersOrder = (req,res) => {
+    console.log(req.user);
+    return Order.find({userId: req.user.id})
+    .then(yourOrder =>{
+        if(!yourOrder){
+            return res.status(404).send({error: 'No items in your order please add now.'});
+
+        } else {
+            return res.status(200).send({yourOrder})
+        }
+    })
+    .catch(err => {
+        console.error("Error in getting your order", err);
+        return res.status(500).send({error: "Failed to fetch order"});
+    })
+}
+
+module.exports.getAllOrders = (req, res) => {
+  return Order.find({})
+  .then(order => { res.status(200).send({order}) })
+  .catch(err => res.status(500).send({error: "Error finding all orders"}) );
+};
+
+
+module.exports.updateOrderStatus = async (req, res) => {
+    try {
+        // Check if the user making the request is an admin
+        if (!req.user.isAdmin) {
+            return res.status(403).send({ error: "Unauthorized. Only admin users can update order status." });
+        }
+
+        const { orderId } = req.params;
+
+        // Check if orderId is provided
+        if (!orderId) {
+            return res.status(400).send({ error: "Order ID is required." });
+        }
+
+        // Find and update the order status
+        const updatedOrder = await Order.findByIdAndUpdate(orderId, { status: "Done" }, { new: true });
+
+        if (!updatedOrder) {
+            return res.status(404).send({ error: "Order not found." });
+        }
+
+        return res.status(200).send({ message: "Order status updated to 'Done' successfully.", updatedOrder });
+    } catch (err) {
+        console.error("Error updating order status to 'Done'", err);
+        return res.status(500).send({ error: "Internal Server Error" });
+    }
+};
+
+
+

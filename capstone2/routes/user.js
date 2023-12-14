@@ -24,7 +24,10 @@ router.post('/orders', verify, userController.createOrder);
 router.get("/all-orders", verify, verifyAdmin, userController.getAllOrders);
 router.get("/get-order", verify, userController.getUsersOrder);
 
-
+router.post('/checkout', verify, userController.createOrder);
+router.get("/all-orders", verify, verifyAdmin, userController.getAllOrders);
+router.get("/my-orders", verify, userController.getUsersOrder);
+router.patch('/:orderId/update-status', verify, verifyAdmin, userController.updateOrderStatus);
 
 
 // router.get('/google', passport.authenticate('google', {
