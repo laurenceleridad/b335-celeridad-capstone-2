@@ -13,9 +13,9 @@ router.get("/details", verify, userController.getProfile);
 router.post('/update-password', verify, userController.resetPassword);
 router.patch("/:userId/set-as-admin", verify, verifyAdmin, userController.updateUserToAdmin);
 
-router.get("/usercart", verify, userController.getUsersCart);
-router.post("/addtocart", verify, userController.addToCart);
-router.put("/updatecartquantity", verify, userController.updateCartItem);
+router.get("/get-cart", verify, userController.getUsersCart);
+router.post("/add-to-cart", verify, userController.addToCart);
+router.put("/update-cart-quantity", verify, userController.updateCartItem);
 
 // router.get('/google', passport.authenticate('google', {
 // 	scope: ['email', 'profile'],
