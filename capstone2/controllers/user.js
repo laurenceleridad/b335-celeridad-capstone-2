@@ -2,7 +2,7 @@ const User = require("../models/User");
 const bcrypt = require("bcrypt");
 const auth = require("../auth");
 const Cart = require("../models/Cart");
-
+const Order = require("../models/Order");
 
 module.exports.registerUser = (req, res) => {
 	return User.findOne({ email : req.body.email }).then((result) => {
@@ -264,3 +264,42 @@ module.exports.removeCartItem = async (req, res) => {
     res.status(500).send('Internal Server Error');
   }
 };
+
+
+module.exports.createOrder = (req, res) => {
+
+    let newOrder = new Order ({
+      userId: req.user.id,
+      productsOrdered: req.body.productsOrdered,
+      totalPrice: req.body.totalPrice
+    })
+
+    return newOrder.save()
+    .then(yourOrder => {return res.status(201).send({message: "Order created successfully", yourOrder})})
+    .catch(err => res.status(500).send(err));
+}
+
+
+module.exports.getAllOrders = (req, res) => {
+  return Order.find({})
+  .then(order => { res.status(200).send({order}) })
+  .catch(err => res.status(500).send({error: "Error finding all orders"}) );
+};
+
+
+module.exports.getUsersOrder = (req,res) => {
+    console.log(req.user);
+    return Order.find({userId: req.user.id})
+    .then(yourOrder =>{
+        if(!yourOrder){
+            return res.status(404).send({error: 'No items in your order please add now.'});
+
+        } else {
+            return res.status(200).send({yourOrder})
+        }
+    })
+    .catch(err => {
+        console.error("Error in getting your order", err);
+        return res.status(500).send({error: "Failed to fetch order"});
+    })
+}

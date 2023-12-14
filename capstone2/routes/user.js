@@ -20,6 +20,12 @@ router.put("/update-cart-quantity", verify, userController.updateCartItem);
 router.patch('/remove-cart-item', verify, userController.removeCartItem);
 router.put('/clear-cart-items', verify,  userController.clearCartItems);
 
+router.post('/orders', verify, userController.createOrder);
+router.get("/all-orders", verify, verifyAdmin, userController.getAllOrders);
+router.get("/get-order", verify, userController.getUsersOrder);
+
+
+
 
 // router.get('/google', passport.authenticate('google', {
 // 	scope: ['email', 'profile'],
@@ -57,9 +63,6 @@ router.put('/clear-cart-items', verify,  userController.clearCartItems);
 // 		}
 // 	})
 // })
-
-
-
 
 
 module.exports = router;

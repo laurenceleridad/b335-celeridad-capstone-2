@@ -167,7 +167,7 @@ module.exports.searchProductsByName = (req, res) => {
     return res.status(400).send({ error: "Name is required." });
   }
 
-  const regex = new RegExp(name, 'i'); // 'i' makes the regex case-insensitive
+  const regex = new RegExp(name, 'i');
 
   console.log('Regex:', regex);
 
@@ -181,3 +181,4 @@ module.exports.searchProductsByName = (req, res) => {
       return res.status(500).send({ error: "Internal Server Error" });
     });
 };
+
