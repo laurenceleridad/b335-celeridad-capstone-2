@@ -54,7 +54,7 @@ module.exports.archiveProduct = (req, res) => {
         isActive: false
     }
 
-    return Product.findByIdAndUpdate(req.params.productId, updateStatus)
+    return Product.findByIdAndUpdate(req.params.productId, updateStatus, {new:true})
     .then(archiveProduct => {
         if(!archiveProduct){
             return res.status(404).send({ error: 'Product not found' });
@@ -80,7 +80,7 @@ module.exports.activateProduct = (req, res) => {
         isActive: true
     }
 
-    return Product.findByIdAndUpdate(req.params.productId, updateStatus)
+    return Product.findByIdAndUpdate(req.params.productId, updateStatus, {new:true})
     .then(activatedProduct => {
         if(!activatedProduct){
             return res.status(404).send({ error: 'Product not found' });
@@ -123,9 +123,9 @@ module.exports.updateProduct = (req, res) => {
 		price: req.body.price 
 	}
 
-	return Product.findByIdAndUpdate(req.params.productId, updatedProduct)
-	.then(result => {
-		if(!result){
+	return Product.findByIdAndUpdate(req.params.productId, updatedProduct, {new:true})
+	.then(updatedProduct => {
+		if(!updatedProduct){
 			return res.status(404).send({ error: "Product not found"})
 		}
 		else{
