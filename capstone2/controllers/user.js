@@ -5,6 +5,7 @@ const Cart = require("../models/Cart");
 const Order = require("../models/Order");
 const Product = require("../models/Product");
 
+
 module.exports.registerUser = (req, res) => {
   const { firstName, lastName, email, isAdmin, password, mobileNo } = req.body;
 
@@ -152,66 +153,6 @@ module.exports.getUsersCart = (req, res) => {
 };
 
 
-// module.exports.addToCart = async (req, res) => {
-//   // Ensure that req.user is available and contains the user's information
-//   if (!req.user) {
-//     return res.status(401).send('Unauthorized');
-//   }
-
-//   const { cartItems } = req.body;
-//   const userId = req.user.id; // Use the user ID from the token
-
-//   try {
-//     // Check if the user already has a cart
-//     let existingCart = await Cart.findOne({ userId });
-
-//     if (existingCart) {
-//       // Iterate over each item in cartItems
-//       for (const newItem of cartItems) {
-//         // Check if the product already exists in the cart
-//         const existingCartItemIndex = existingCart.cartItems.findIndex(
-//           (item) => item.productId === newItem.productId
-//         );
-
-//         if (existingCartItemIndex !== -1) {
-//           // If the product already exists, update quantity and subtotal
-//           existingCart.cartItems[existingCartItemIndex].quantity += newItem.quantity;
-//           existingCart.cartItems[existingCartItemIndex].subtotal += newItem.subtotal;
-//         } else {
-//           // If the product does not exist, add it to the cart
-//           existingCart.cartItems.push(newItem);
-//         }
-//       }
-
-//       // Calculate the updated total price based on individual quantity and subtotal values
-//       existingCart.totalPrice = existingCart.cartItems.reduce(
-//         (total, item) => total + item.subtotal,
-//         0
-//       );
-
-//       // Save the updated cart
-//       const updatedCart = await existingCart.save();
-
-//       return res.status(200).json(updatedCart);
-//     } else {
-//       // If the user doesn't have a cart, create a new cart
-//       const totalPrice = cartItems.reduce((total, item) => total + item.subtotal, 0);
-//       const newCart = new Cart({
-//         userId,
-//         cartItems,
-//         totalPrice,
-//       });
-
-//       const savedCart = await newCart.save();
-//       return res.status(201).json(savedCart);
-//     }
-//   } catch (error) {
-//     console.error(error);
-//     return res.status(500).send('Internal Server Error');
-//   }
-// };
-
-
 module.exports.addToCart = async (req, res) => {
   // Ensure that the request includes the user's information
   if (!req.user) {
@@ -286,6 +227,7 @@ module.exports.addToCart = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
+
 
 module.exports.updateCartItem = async (req, res) => {
   // Ensure that req.user is available and contains the user's information
