@@ -20,13 +20,9 @@ router.put("/update-cart-quantity", verify, userController.updateCartItem);
 router.patch('/:productId/remove-from-cart', verify, userController.removeCartItem);
 router.put('/clear-cart', verify,  userController.clearCartItems);
 
-router.post('/orders', verify, userController.createOrder);
-router.get("/all-orders", verify, verifyAdmin, userController.getAllOrders);
-router.get("/get-order", verify, userController.getUsersOrder);
-
 router.post('/checkout', verify, userController.createOrder);
+router.get("/my-orders", verify, userController.getMyOrder);
 router.get("/all-orders", verify, verifyAdmin, userController.getAllOrders);
-router.get("/my-orders", verify, userController.getUsersOrder);
 router.patch('/:orderId/update-status', verify, verifyAdmin, userController.updateOrderStatus);
 
 

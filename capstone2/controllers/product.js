@@ -143,15 +143,19 @@ module.exports.updateProduct = (req, res) => {
 	});
 }
 
+
 module.exports.searchProductsByPriceRange = (req, res) => {
   const { minPrice, maxPrice } = req.body;
 
-  if (!minPrice || !maxPrice) {
+  if (!minPrice || !maxPrice || isNaN(minPrice) || isNaN(maxPrice)) {
     return res.status(400).send({ error: "Both minPrice and maxPrice are required." });
   }
 
   Product.find({ price: { $gte: minPrice, $lte: maxPrice } })
     .then((products) => {
+      if (products.length === 0) {
+        return res.status(404).send({ message: "No products found in the specified price range." });
+      }
       return res.status(200).send({ products });
     })
     .catch((err) => {
@@ -159,6 +163,7 @@ module.exports.searchProductsByPriceRange = (req, res) => {
       return res.status(500).send({ error: "Internal Server Error" });
     });
 };
+
 
 module.exports.searchProductsByName = (req, res) => {
   const { name } = req.body;
@@ -173,6 +178,9 @@ module.exports.searchProductsByName = (req, res) => {
 
   Product.find({ name: regex })
     .then((products) => {
+      if (products.length === 0) {
+        return res.status(404).send({ message: "No products found with the specified name." });
+      }
       console.log('Query results:', products);
       return res.status(200).send({ products });
     })
@@ -181,4 +189,5 @@ module.exports.searchProductsByName = (req, res) => {
       return res.status(500).send({ error: "Internal Server Error" });
     });
 };
+
 
