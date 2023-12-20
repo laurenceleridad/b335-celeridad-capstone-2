@@ -96,23 +96,41 @@ module.exports.getProfile = (req,res) => {
 }
 
 
-module.exports.resetPassword = async (req, res) => {
+module.exports.changePassword = async (req, res) => {
   try {
-    const { newPassword } = req.body; 
-    const { id } = req.user; 
+    const { newPassword } = req.body;
+    const { id } = req.user;
 
+    // Fetch the user from the database to get the hashed password
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).send({ message: 'User not found' });
+    }
+
+    const { password: oldHashedPassword } = user;
+
+    // Check if the new password is the same as the old password
+    if (await bcrypt.compare(newPassword, oldHashedPassword)) {
+      return res.status(400).send({ message: 'New password must be different from the old password' });
+    }
+
+    // Check if the new password is at least 8 characters long
+    if (newPassword.length < 8) {
+      return res.status(400).send({ message: 'New password must be at least 8 characters long' });
+    }
+
+    // Generate a salt and hash the new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
+    // Update the user's password in the database
     await User.findByIdAndUpdate(id, { password: hashedPassword });
 
-   
-    res.status(200).send({ message: 'Password reset successfully' });
+    res.status(200).send({ message: 'Password change successful' });
   } catch (error) {
     console.error(error);
     res.status(500).send({ message: 'Internal server error' });
   }
 };
-
 
 module.exports.updateUserToAdmin = (req, res) => {
   const { userId } = req.params;

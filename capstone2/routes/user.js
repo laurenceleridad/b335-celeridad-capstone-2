@@ -10,7 +10,7 @@ const {verify, verifyAdmin} = auth;
 router.post("/", userController.registerUser);
 router.post("/login", userController.loginUser);
 router.get("/details", verify, userController.getProfile);
-router.post('/update-password', verify, userController.resetPassword);
+router.post('/update-password', verify, userController.changePassword);
 router.patch("/:userId/set-as-admin", verify, verifyAdmin, userController.updateUserToAdmin);
 
 router.get("/get-cart", verify, userController.getUsersCart);
