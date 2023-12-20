@@ -3,7 +3,7 @@ const bcrypt = require("bcrypt");
 const auth = require("../auth");
 const Cart = require("../models/Cart");
 const Order = require("../models/Order");
-
+const Product = require("../models/Product");
 
 module.exports.registerUser = (req, res) => {
   const { firstName, lastName, email, isAdmin, password, mobileNo } = req.body;
@@ -152,28 +152,106 @@ module.exports.getUsersCart = (req, res) => {
 };
 
 
+// module.exports.addToCart = async (req, res) => {
+//   // Ensure that req.user is available and contains the user's information
+//   if (!req.user) {
+//     return res.status(401).send('Unauthorized');
+//   }
+
+//   const { cartItems } = req.body;
+//   const userId = req.user.id; // Use the user ID from the token
+
+//   try {
+//     // Check if the user already has a cart
+//     let existingCart = await Cart.findOne({ userId });
+
+//     if (existingCart) {
+//       // Iterate over each item in cartItems
+//       for (const newItem of cartItems) {
+//         // Check if the product already exists in the cart
+//         const existingCartItemIndex = existingCart.cartItems.findIndex(
+//           (item) => item.productId === newItem.productId
+//         );
+
+//         if (existingCartItemIndex !== -1) {
+//           // If the product already exists, update quantity and subtotal
+//           existingCart.cartItems[existingCartItemIndex].quantity += newItem.quantity;
+//           existingCart.cartItems[existingCartItemIndex].subtotal += newItem.subtotal;
+//         } else {
+//           // If the product does not exist, add it to the cart
+//           existingCart.cartItems.push(newItem);
+//         }
+//       }
+
+//       // Calculate the updated total price based on individual quantity and subtotal values
+//       existingCart.totalPrice = existingCart.cartItems.reduce(
+//         (total, item) => total + item.subtotal,
+//         0
+//       );
+
+//       // Save the updated cart
+//       const updatedCart = await existingCart.save();
+
+//       return res.status(200).json(updatedCart);
+//     } else {
+//       // If the user doesn't have a cart, create a new cart
+//       const totalPrice = cartItems.reduce((total, item) => total + item.subtotal, 0);
+//       const newCart = new Cart({
+//         userId,
+//         cartItems,
+//         totalPrice,
+//       });
+
+//       const savedCart = await newCart.save();
+//       return res.status(201).json(savedCart);
+//     }
+//   } catch (error) {
+//     console.error(error);
+//     return res.status(500).send('Internal Server Error');
+//   }
+// };
+
+
 module.exports.addToCart = async (req, res) => {
-  const { userId, cartItems } = req.body;
+  // Ensure that the request includes the user's information
+  if (!req.user) {
+    return res.status(401).send('Unauthorized');
+  }
+
+  const { cartItems } = req.body;
+  const userId = req.user.id; // Retrieve the user ID from the authentication token
 
   try {
     // Check if the user already has a cart
     let existingCart = await Cart.findOne({ userId });
 
     if (existingCart) {
-      // Iterate over each item in cartItems
+      // Iterate over each item in the cartItems array
       for (const newItem of cartItems) {
+        // Fetch product details from the database based on productId
+        const product = await Product.findById(newItem.productId);
+
+        if (!product) {
+          return res.status(404).json({ error: 'Product not found' });
+        }
+
         // Check if the product already exists in the cart
         const existingCartItemIndex = existingCart.cartItems.findIndex(
           (item) => item.productId === newItem.productId
         );
 
         if (existingCartItemIndex !== -1) {
-          // If the product already exists, update quantity and subtotal
+          // If the product already exists, update quantity and recalculate subtotal
           existingCart.cartItems[existingCartItemIndex].quantity += newItem.quantity;
-          existingCart.cartItems[existingCartItemIndex].subtotal += newItem.subtotal;
+          existingCart.cartItems[existingCartItemIndex].subtotal =
+            existingCart.cartItems[existingCartItemIndex].quantity * product.price;
         } else {
           // If the product does not exist, add it to the cart
-          existingCart.cartItems.push(newItem);
+          existingCart.cartItems.push({
+            productId: newItem.productId,
+            quantity: newItem.quantity,
+            subtotal: newItem.quantity * product.price,
+          });
         }
       }
 
@@ -183,21 +261,25 @@ module.exports.addToCart = async (req, res) => {
         0
       );
 
-      // Save the updated cart
+      // Save the updated cart with explicit validation
       const updatedCart = await existingCart.save();
 
-      return res.status(200).json(updatedCart);
+      // Return success message
+      return res.status(200).json({ message: 'Items added to the cart successfully', cart: updatedCart });
     } else {
       // If the user doesn't have a cart, create a new cart
-      const totalPrice = cartItems.reduce((total, item) => total + item.subtotal, 0);
+      const totalPrice = await calculateTotalPrice(cartItems);
       const newCart = new Cart({
         userId,
-        cartItems,
+        cartItems: await calculateCartItems(cartItems),
         totalPrice,
       });
 
+      // Save the new cart with explicit validation
       const savedCart = await newCart.save();
-      return res.status(201).json(savedCart);
+
+      // Return success message
+      return res.status(201).json({ message: 'Items added to the cart successfully', cart: savedCart });
     }
   } catch (error) {
     console.error(error);
@@ -205,10 +287,15 @@ module.exports.addToCart = async (req, res) => {
   }
 };
 
-
 module.exports.updateCartItem = async (req, res) => {
+  // Ensure that req.user is available and contains the user's information
+  if (!req.user) {
+    return res.status(401).send('Unauthorized');
+  }
+
   try {
-    const { userId, productId, quantity, subtotal } = req.body;
+    const { productId, quantity } = req.body;
+    const userId = req.user.id; // Use the user ID from the token
 
     console.log('Updating cart item:', userId, productId);
 
@@ -225,23 +312,33 @@ module.exports.updateCartItem = async (req, res) => {
 
       const existingQuantity = existingCartItem.cartItems[updatedItemIndex].quantity;
 
-      // Check if quantity and subtotal are the same
-      if (existingQuantity !== quantity || existingCartItem.cartItems[updatedItemIndex].subtotal !== subtotal) {
+      // Fetch product details from the database based on productId
+      const product = await Product.findById(productId);
+
+      if (!product) {
+        return res.status(404).json({ error: 'Product not found' });
+      }
+
+      // Calculate subtotal based on the given quantity and product price
+      const newSubtotal = quantity * product.price;
+
+      // Check if quantity or the new subtotal is different from existing values
+      if (existingQuantity !== quantity || existingCartItem.cartItems[updatedItemIndex].subtotal !== newSubtotal) {
         // Reset total price to the initial value
         existingCartItem.totalPrice = existingCartItem.totalPrice - existingCartItem.cartItems[updatedItemIndex].subtotal;
 
         // Update quantity and subtotal for the specific item
         existingCartItem.cartItems[updatedItemIndex].quantity = quantity;
-        existingCartItem.cartItems[updatedItemIndex].subtotal = subtotal;
+        existingCartItem.cartItems[updatedItemIndex].subtotal = newSubtotal;
 
         // Update total price by adding the new subtotal
-        existingCartItem.totalPrice += subtotal;
+        existingCartItem.totalPrice += newSubtotal;
 
         // Save the updated cart
         const updatedQuantity = await existingCartItem.save();
 
         console.log('Updated user:', updatedQuantity);
-        return res.send({ message: 'Here is your updated order', updatedQuantity });
+        return res.send({ message: 'Here is your updated cart', updatedQuantity });
       } else {
         // If quantity and subtotal are the same, just return the existing cart
         console.log('No changes in quantity or subtotal, returning existing cart.');
@@ -249,6 +346,16 @@ module.exports.updateCartItem = async (req, res) => {
       }
     } else {
       // If the item doesn't exist, add it to cartItems
+      // Fetch product details from the database based on productId
+      const product = await Product.findById(productId);
+
+      if (!product) {
+        return res.status(404).json({ error: 'Product not found' });
+      }
+
+      // Calculate subtotal based on the given quantity and product price
+      const subtotal = quantity * product.price;
+
       const newItem = {
         productId,
         quantity,
