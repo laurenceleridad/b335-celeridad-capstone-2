@@ -111,12 +111,12 @@ module.exports.changePassword = async (req, res) => {
 
     // Check if the new password is the same as the old password
     if (await bcrypt.compare(newPassword, oldHashedPassword)) {
-      return res.status(400).send({ message: 'New password must be different from the old password' });
+      return res.status(400).send({ error: 'New password must be different from the old password' });
     }
 
     // Check if the new password is at least 8 characters long
     if (newPassword.length < 8) {
-      return res.status(400).send({ message: 'New password must be at least 8 characters long' });
+      return res.status(400).send({ error: 'New password must be at least 8 characters long' });
     }
 
     // Generate a salt and hash the new password
@@ -154,20 +154,49 @@ module.exports.updateUserToAdmin = (req, res) => {
 };
 
 
-module.exports.getUsersCart = (req, res) => {
-  console.log(req.user);
-  return Cart.find({ userId: req.user.id })
-    .then((YourCart) => {
-      if (!YourCart || YourCart.length === 0 || !YourCart[0].cartItems || YourCart[0].cartItems.length === 0) {
-        return res.status(404).send({ error: 'No items in your cart. Please add now.' });
-      } else {
-        return res.status(200).send({ YourCart });
-      }
-    })
-    .catch((err) => {
-      console.error("Error in getting your cart", err);
-      return res.status(500).send({ error: "Failed to fetch cart" });
-    });
+module.exports.getUsersCart = async (req, res) => {
+  try {
+    console.log(req.user);
+
+    const userCart = await Cart.findOne({ userId: req.user.id });
+
+    if (!userCart || !userCart.cartItems || userCart.cartItems.length === 0) {
+      return res.status(404).send({ error: 'No items in your cart. Please add now.' });
+    }
+
+    // Filter out inactive products from the cart
+    userCart.cartItems = await Promise.all(
+      userCart.cartItems.map(async (cartItem) => {
+        const product = await Product.findById(cartItem.productId);
+
+        if (product && product.isActive) {
+          return cartItem;
+        }
+      })
+    );
+
+    // Remove any undefined items resulting from the filtering
+    userCart.cartItems = userCart.cartItems.filter((item) => item);
+
+    // If no items are left in the cart after filtering, return a 404 response
+    if (userCart.cartItems.length === 0) {
+      return res.status(404).send({ error: 'No active items in your cart. Please add now.' });
+    }
+
+    // Calculate the updated total price based on individual quantity and subtotal values
+    userCart.totalPrice = userCart.cartItems.reduce(
+      (total, item) => total + item.subtotal,
+      0
+    );
+
+    // Save the updated cart with explicit validation
+    const updatedCart = await userCart.save();
+
+    return res.status(200).send({ YourCart: updatedCart });
+  } catch (err) {
+    console.error('Error in getting your cart', err);
+    return res.status(500).send({ error: 'Failed to fetch cart' });
+  }
 };
 
 
@@ -180,6 +209,36 @@ module.exports.addToCart = async (req, res) => {
   const { cartItems } = req.body;
   const userId = req.user.id; // Retrieve the user ID from the authentication token
 
+  const calculateTotalPrice = async (cartItems) => {
+    // Implement the logic to calculate the total price based on cart items
+    let totalPrice = 0;
+    for (const item of cartItems) {
+      const product = await Product.findById(item.productId);
+      if (product && product.isActive) {
+        totalPrice += item.quantity * product.price;
+      }
+    }
+    return totalPrice;
+  };
+
+  const calculateCartItems = async (cartItems) => {
+    // Implement the logic to fetch product details and calculate subtotal for each item
+    const calculatedCartItems = [];
+
+    for (const item of cartItems) {
+      const product = await Product.findById(item.productId);
+      if (product && product.isActive) {
+        calculatedCartItems.push({
+          productId: item.productId,
+          quantity: item.quantity,
+          subtotal: item.quantity * product.price,
+        });
+      }
+    }
+
+    return calculatedCartItems;
+  };
+
   try {
     // Check if the user already has a cart
     let existingCart = await Cart.findOne({ userId });
@@ -190,8 +249,8 @@ module.exports.addToCart = async (req, res) => {
         // Fetch product details from the database based on productId
         const product = await Product.findById(newItem.productId);
 
-        if (!product) {
-          return res.status(404).json({ error: 'Product not found' });
+        if (!product || !product.isActive) {
+          return res.status(404).json({ error: 'Product not found or inactive' });
         }
 
         // Check if the product already exists in the cart
@@ -255,7 +314,7 @@ module.exports.updateCartItem = async (req, res) => {
 
   try {
     const { productId, quantity } = req.body;
-    const userId = req.user.id; // Use the user ID from the token
+    const userId = req.user.id; 
 
     console.log('Updating cart item:', userId, productId);
 
@@ -291,10 +350,8 @@ module.exports.updateCartItem = async (req, res) => {
         existingCartItem.cartItems[updatedItemIndex].quantity = quantity;
         existingCartItem.cartItems[updatedItemIndex].subtotal = newSubtotal;
 
-        // Update total price by adding the new subtotal
         existingCartItem.totalPrice += newSubtotal;
 
-        // Save the updated cart
         const updatedQuantity = await existingCartItem.save();
 
         console.log('Updated user:', updatedQuantity);
@@ -305,15 +362,13 @@ module.exports.updateCartItem = async (req, res) => {
         return res.send({ message: 'No changes in quantity or subtotal', existingCartItem });
       }
     } else {
-      // If the item doesn't exist, add it to cartItems
-      // Fetch product details from the database based on productId
+      
       const product = await Product.findById(productId);
 
       if (!product) {
         return res.status(404).json({ error: 'Product not found' });
       }
 
-      // Calculate subtotal based on the given quantity and product price
       const subtotal = quantity * product.price;
 
       const newItem = {
@@ -322,7 +377,6 @@ module.exports.updateCartItem = async (req, res) => {
         subtotal,
       };
 
-      // Update total price by adding the new subtotal
       const totalChange = subtotal;
       const updatedUserWithNewItem = await Cart.findOneAndUpdate(
         { userId },
@@ -351,6 +405,50 @@ module.exports.updateCartItem = async (req, res) => {
   }
 };
 
+
+module.exports.removeCartItem = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { productId } = req.params;
+
+    console.log(`Removing product ${productId} from the cart for user ${userId}`);
+
+    const userBeforeUpdate = await Cart.findOne({ userId });
+    console.log('Cart before update:', userBeforeUpdate);
+
+    // Find the item to be removed
+    const itemToRemove = userBeforeUpdate.cartItems.find(item => item.productId === productId);
+
+    if (!itemToRemove) {
+      return res.status(404).send({ error: 'Product not found in the cart' });
+    }
+
+    
+    const updatedCartItems = await Cart.findOneAndUpdate(
+      { userId },
+      {
+        $pull: {
+          'cartItems': { productId },
+        },
+        $inc: {
+          'totalPrice': -itemToRemove.subtotal,
+        },
+      },
+      { new: true }
+    );
+
+    console.log('Updated user:', updatedCartItems);
+
+    if (!updatedCartItems) {
+      return res.status(404).send({ error: 'User not found' });
+    }
+
+    res.send({ message: `Product removed from the cart successfully`, updatedCartItems });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Internal Server Error');
+  }
+};
 
 module.exports.clearCartItems = async (req, res) => {
   try {
@@ -385,52 +483,6 @@ module.exports.clearCartItems = async (req, res) => {
   }
 };
 
-
-module.exports.removeCartItem = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { productId } = req.params;
-
-    console.log(`Removing product ${productId} from the cart for user ${userId}`);
-
-    const userBeforeUpdate = await Cart.findOne({ userId });
-    console.log('Cart before update:', userBeforeUpdate);
-
-    // Find the item to be removed
-    const itemToRemove = userBeforeUpdate.cartItems.find(item => item.productId === productId);
-
-    if (!itemToRemove) {
-      return res.status(404).send({ error: 'Product not found in the cart' });
-    }
-
-    // Remove the item and update the total price
-    const updatedCartItems = await Cart.findOneAndUpdate(
-      { userId },
-      {
-        $pull: {
-          'cartItems': { productId },
-        },
-        $inc: {
-          'totalPrice': -itemToRemove.subtotal,
-        },
-      },
-      { new: true }
-    );
-
-    console.log('Updated user:', updatedCartItems);
-
-    if (!updatedCartItems) {
-      return res.status(404).send({ error: 'User not found' });
-    }
-
-    res.send({ message: `Product removed from the cart successfully`, updatedCartItems });
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('Internal Server Error');
-  }
-};
-
-
 module.exports.createOrder = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -445,7 +497,7 @@ module.exports.createOrder = async (req, res) => {
             return res.status(400).send({ message: "No items in the cart" });
         }
 
-        // Check if an order with the same userId and productsOrdered already exists
+        
         const existingOrder = await Order.findOne({
             userId: userId,
             productsOrdered: cart.cartItems,
@@ -461,14 +513,45 @@ module.exports.createOrder = async (req, res) => {
             totalPrice: cart.totalPrice,
         });
 
+        
+        await clearCartItems(req, res);
+
         const yourOrder = await newOrder.save();
 
         return res.status(201).send({
-            message: "Order created successfully",
+            message: "Order created successfully. Cart items cleared.",
             yourOrder,
         });
     } catch (err) {
-        return res.status(500).send(err);
+        console.error('Error creating order:', err);
+        return res.status(500).send('Internal Server Error');
+    }
+};
+
+
+const clearCartItems = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        console.log(`Clearing the cart for user ${userId}`);
+
+        const updatedCart = await Cart.findOneAndUpdate(
+            { userId },
+            { $set: { cartItems: [], totalPrice: 0 } },
+            { new: true }
+        );
+
+        console.log('Updated user:', updatedCart);
+
+        if (!updatedCart) {
+            return res.status(404).send({ error: 'User not found' });
+        }
+
+        console.log('Cart items cleared');
+
+    } catch (error) {
+        console.error('Error clearing cart items:', error);
+        res.status(500).send('Internal Server Error');
     }
 };
 
