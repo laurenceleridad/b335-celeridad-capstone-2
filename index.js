@@ -11,7 +11,7 @@ const productRoutes = require("./routes/product");
 // require("./passport");
 
 
-const port = 4000;
+const port = 4002;
 
 
 const cors = require("cors");
@@ -44,8 +44,12 @@ mongoose.connect("mongodb+srv://admin:admin@b335-celeridad.au92cmr.mongodb.net/F
 
 mongoose.connection.once('open', () => console.log ('Now connected to MongoDB Atlas'));
 
-app.use("/users", userRoutes);
-app.use("/products", productRoutes);
+app.get("b2", (req, res) => {
+	res.send("Hello world")
+})
+
+app.use("/b2/users", userRoutes);
+app.use("/b2/products", productRoutes);
 
 
 app.listen(process.env.PORT || port, () => {console.log(`API is now online on port ${process.env.PORT || port}`)});
