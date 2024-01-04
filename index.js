@@ -44,7 +44,7 @@ mongoose.connect("mongodb+srv://admin:admin@b335-celeridad.au92cmr.mongodb.net/F
 
 mongoose.connection.once('open', () => console.log ('Now connected to MongoDB Atlas'));
 
-app.get("b2", (req, res) => {
+app.get("/b2", (req, res) => {
 	res.send("Hello world")
 })
 
